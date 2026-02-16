@@ -1,7 +1,7 @@
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 
 function terrainHeight(x, z) {
-  return 0;
+  return -0.18;
 }
 
 export class Track {
@@ -158,7 +158,8 @@ export class Track {
     const sun = new THREE.DirectionalLight('#fff2cc', 1.25);
     sun.position.set(650, 900, 350);
     this.scene.add(sun);
-    this.scene.add(new THREE.AmbientLight('#acc7ea', 0.55));
+    this.scene.add(new THREE.AmbientLight('#acc7ea', 0.48));
+    this.scene.add(new THREE.HemisphereLight('#d9ecff', '#6c7a6a', 0.35));
 
     const mountainMatFar = new THREE.MeshStandardMaterial({ color: '#4f6b6b', roughness: 1 });
     const mountainMatMid = new THREE.MeshStandardMaterial({ color: '#5f7a5d', roughness: 1 });

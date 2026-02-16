@@ -36,10 +36,11 @@ export class UI {
     this.lapEl.textContent = `Lap ${kart.lap}/3`;
     this.debugEl.innerHTML = [
       `speed: ${telemetry.speed.toFixed(2)} m/s`,
+      `steering: ${telemetry.steering.toFixed(2)}`,
+      `yaw: ${telemetry.yaw.toFixed(2)} rad`,
+      `onGround: ${telemetry.onGround}`,
       `drifting: ${telemetry.drifting}`,
       `turboLevel: ${telemetry.turboLevel}`,
-      `onGround: ${telemetry.onGround}`,
-      `offroad: ${telemetry.offroad}`,
     ].join('<br/>');
 
     this.drawMinimap(kart);

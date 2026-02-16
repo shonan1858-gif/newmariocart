@@ -29,11 +29,15 @@ export class InputController {
     return this.keys.has('ShiftLeft') || this.keys.has('ShiftRight') ? 1 : 0;
   }
 
+  // A=左(-1), D=右(+1)
   get steer() {
-    // 統一仕様: A=左(-1), D=右(+1)
-    const steerLeft = this.keys.has('KeyA') ? -1 : 0;
-    const steerRight = this.keys.has('KeyD') ? 1 : 0;
-    return steerLeft + steerRight;
+    const left = this.keys.has('KeyA') ? -1 : 0;
+    const right = this.keys.has('KeyD') ? 1 : 0;
+    return left + right;
+  }
+
+  get drift() {
+    return this.keys.has('ControlLeft') || this.keys.has('ControlRight') || this.keys.has('KeyC') ? 1 : 0;
   }
 
   consumePressed(code) {
