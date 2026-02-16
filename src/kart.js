@@ -8,6 +8,8 @@ const BOOST_TABLE = [
   { force: 36, duration: 1.2 },
 ];
 
+const STEER_SIGN = -1;
+
 export class Kart {
   constructor(scene, track) {
     this.scene = scene;
@@ -110,7 +112,7 @@ export class Kart {
 
   startDrift(directionHint) {
     this.isDrifting = true;
-    this.driftDir = directionHint === 0 ? this.driftDir || 1 : Math.sign(directionHint);
+    this.driftDir = directionHint === 0 ? this.driftDir || 1 : Math.sign(directionHint * STEER_SIGN);
     this.driftTime = 0;
     this.turboLevel = 0;
   }
@@ -170,13 +172,13 @@ export class Kart {
 
     const steeringPower = this.isDrifting ? 3.15 : 2.25;
     const steerScale = THREE.MathUtils.clamp(movingSpeed / 26, 0.2, 1.0);
-    this.yaw += steerInput * steeringPower * steerScale * dt;
+    this.yaw += steerInput * STEER_SIGN * steeringPower * steerScale * dt;
 
     if (this.isDrifting) {
       this.driftTime += dt;
       this.turboLevel = DRIFT_THRESHOLDS.reduce((lvl, threshold, idx) => (this.driftTime > threshold ? idx + 1 : lvl), 0);
       if (Math.abs(steerInput) > 0.01) {
-        this.driftDir = Math.sign(steerInput);
+        this.driftDir = Math.sign(steerInput * STEER_SIGN);
       }
 
       const slipAmount = Math.abs(steerInput) > 0.06
@@ -240,7 +242,7 @@ export class Kart {
       wheel.rotation.x -= wheelSpin;
     });
 
-    this.steerVisual = THREE.MathUtils.lerp(this.steerVisual, steerInput * 0.42, dt * 12);
+    this.steerVisual = THREE.MathUtils.lerp(this.steerVisual, steerInput * STEER_SIGN * 0.42, dt * 12);
     this.frontWheels.forEach((pivot) => {
       pivot.rotation.y = this.steerVisual;
     });

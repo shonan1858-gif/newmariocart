@@ -15,7 +15,7 @@ export class VFXSystem {
     scene.add(this.sparkPoints);
 
     this.skidGeometry = new THREE.BufferGeometry();
-    this.skidMaterial = new THREE.LineBasicMaterial({ color: '#232323', transparent: true, opacity: 0.6 });
+    this.skidMaterial = new THREE.LineBasicMaterial({ color: '#2f2f2f', transparent: true, opacity: 0.22 });
     this.skidLines = new THREE.LineSegments(this.skidGeometry, this.skidMaterial);
     scene.add(this.skidLines);
 
@@ -39,7 +39,7 @@ export class VFXSystem {
 
   addSkid(left, right) {
     this.skidSegments.push(left.clone(), right.clone());
-    if (this.skidSegments.length > 2600) {
+    if (this.skidSegments.length > 900) {
       this.skidSegments.splice(0, 4);
     }
   }
