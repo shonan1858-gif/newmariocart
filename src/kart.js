@@ -35,6 +35,7 @@ export class Kart {
     this.boostTime = 0;
     this.boostForce = 0;
     this.suspension = 0;
+    this.autoDriftTimeRemaining = 0;
 
     this.lastCheckpointIndex = 0;
     this.lap = 1;
@@ -109,8 +110,32 @@ export class Kart {
     return new THREE.Vector3(Math.sin(this.yaw), 0, Math.cos(this.yaw)).normalize();
   }
 
+  startDrift(directionHint = 0) {
+    this.isDrifting = true;
+    if (directionHint !== 0) {
+      this.driftDir = Math.sign(directionHint);
+    } else if (this.driftDir === 0) {
+      this.driftDir = 1;
+    }
+    this.driftTime = 0;
+    this.turboLevel = 0;
+  }
+
+  stopDrift(applyBoost = true) {
+    this.isDrifting = false;
+    this.autoDriftTimeRemaining = 0;
+    if (applyBoost) {
+      const boost = BOOST_TABLE[this.turboLevel];
+      this.boostTime = boost.duration;
+      this.boostForce = boost.force;
+    }
+    this.driftTime = 0;
+    this.turboLevel = 0;
+  }
+
   update(dt, input, track, collision, vfx) {
     this.wallHit = false;
+    const wasOnGround = this.onGround;
     const steerInput = input.steer;
     const braking = input.brake > 0;
     const throttle = input.throttle;
@@ -145,48 +170,9 @@ export class Kart {
     const yawStep = steerInput * steeringPower * THREE.MathUtils.clamp(movingSpeed / 20, 0.25, 1.4) * dt;
     this.yaw += yawStep;
 
-    const shouldStartDrift = !this.isDrifting && this.onGround && movingSpeed > 11 && Math.abs(steerInput) > 0.28 && braking;
-    if (shouldStartDrift) {
-      this.isDrifting = true;
-      this.driftDir = Math.sign(steerInput);
-      this.driftTime = 0;
-      this.turboLevel = 0;
-    }
-
-    if (this.isDrifting) {
-      this.driftTime += dt;
-      this.turboLevel = DRIFT_THRESHOLDS.reduce((lvl, threshold, idx) => (this.driftTime > threshold ? idx + 1 : lvl), 0);
-
-      const slip = this.driftDir * THREE.MathUtils.lerp(0.25, 0.58, Math.min(1, this.driftTime / 2.5));
-      const driftYaw = this.yaw + slip;
-      const driftDirVector = new THREE.Vector3(Math.sin(driftYaw), 0, Math.cos(driftYaw));
-      this.velocity.lerp(driftDirVector.multiplyScalar(this.velocity.length()), dt * 2.8);
-      this.velocity.multiplyScalar(1 - dt * 0.5);
-
-      if (Math.abs(steerInput) < 0.05 || !braking || movingSpeed < 7) {
-        this.isDrifting = false;
-        const boost = BOOST_TABLE[this.turboLevel];
-        this.boostTime = boost.duration;
-        this.boostForce = boost.force;
-      }
-    } else {
-      this.driftTime = 0;
-      this.turboLevel = 0;
-    }
-
-    if (this.boostTime > 0) {
-      this.boostTime -= dt;
-      this.velocity.addScaledVector(this.getForward(), this.boostForce * dt);
-      vfx.addBoostWind(this.position, this.getForward());
-    }
-
-    if (this.velocity.length() > maxSpeed + this.boostForce * 0.4) {
-      this.velocity.setLength(maxSpeed + this.boostForce * 0.4);
-    }
-
-    if (this.velocity.lengthSq() > 0.0001) {
-      const resistance = Math.max(0, 1 - drag * dt);
-      this.velocity.multiplyScalar(resistance);
+    const canManualDrift = !this.isDrifting && this.onGround && movingSpeed > 11 && Math.abs(steerInput) > 0.28 && braking;
+    if (canManualDrift) {
+      this.startDrift(steerInput);
     }
 
     this.position.addScaledVector(this.velocity, dt);
@@ -210,9 +196,59 @@ export class Kart {
       this.onGround = false;
     }
 
+    const justLanded = !wasOnGround && this.onGround;
+    if (justLanded && braking) {
+      this.startDrift(steerInput !== 0 ? steerInput : this.driftDir || 1);
+      this.autoDriftTimeRemaining = 3.0;
+    }
+
+    const isAutoDrifting = this.autoDriftTimeRemaining > 0;
+
+    if (this.isDrifting) {
+      this.driftTime += dt;
+      this.turboLevel = DRIFT_THRESHOLDS.reduce((lvl, threshold, idx) => (this.driftTime > threshold ? idx + 1 : lvl), 0);
+
+      if (Math.abs(steerInput) > 0.01) {
+        this.driftDir = Math.sign(steerInput);
+      }
+
+      const effectiveDir = this.driftDir || 1;
+      const weakNoSteer = Math.abs(steerInput) < 0.05;
+      const baseSlip = weakNoSteer ? 0.12 : THREE.MathUtils.lerp(0.25, 0.58, Math.min(1, this.driftTime / 2.5));
+      const slip = effectiveDir * baseSlip;
+      const driftYaw = this.yaw + slip;
+      const driftDirVector = new THREE.Vector3(Math.sin(driftYaw), 0, Math.cos(driftYaw));
+      this.velocity.lerp(driftDirVector.multiplyScalar(this.velocity.length()), dt * 2.8);
+      this.velocity.multiplyScalar(1 - dt * 0.5);
+
+      if (isAutoDrifting) {
+        this.autoDriftTimeRemaining = Math.max(0, this.autoDriftTimeRemaining - dt);
+        if (this.autoDriftTimeRemaining <= 0) {
+          this.stopDrift(false);
+        }
+      } else if (Math.abs(steerInput) < 0.05 || !braking || movingSpeed < 7) {
+        this.stopDrift(true);
+      }
+    }
+
+    if (this.boostTime > 0) {
+      this.boostTime -= dt;
+      this.velocity.addScaledVector(this.getForward(), this.boostForce * dt);
+      vfx.addBoostWind(this.position, this.getForward());
+    }
+
+    if (this.velocity.length() > maxSpeed + this.boostForce * 0.4) {
+      this.velocity.setLength(maxSpeed + this.boostForce * 0.4);
+    }
+
+    if (this.velocity.lengthSq() > 0.0001) {
+      const resistance = Math.max(0, 1 - drag * dt);
+      this.velocity.multiplyScalar(resistance);
+    }
+
     const closest = collision.resolveKart(this);
 
-    this.group.rotation.y = this.yaw;
+    this.group.rotation.set(0, this.yaw, 0);
     this.group.position.y -= this.suspension * 0.25;
     this.suspension = Math.max(0, this.suspension - dt * 3.5);
 
@@ -242,6 +278,8 @@ export class Kart {
       drifting: this.isDrifting,
       turboLevel: this.turboLevel,
       boostTime: this.boostTime,
+      autoDrift: this.autoDriftTimeRemaining > 0,
+      autoDriftTime: this.autoDriftTimeRemaining,
     };
   }
 

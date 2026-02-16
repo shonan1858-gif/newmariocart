@@ -1,12 +1,7 @@
 import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
 
 function terrainHeight(x, z) {
-  return (
-    Math.sin(x * 0.0025) * 16 +
-    Math.cos(z * 0.002) * 13 +
-    Math.sin((x + z) * 0.0015) * 10 +
-    Math.sin((x - z) * 0.0008) * 24
-  );
+  return 0;
 }
 
 export class Track {
@@ -59,19 +54,19 @@ export class Track {
 
   buildTrack() {
     const points = [
-      new THREE.Vector3(0, 65, 0),
-      new THREE.Vector3(140, 75, -220),
-      new THREE.Vector3(390, 100, -470),
-      new THREE.Vector3(720, 120, -350),
-      new THREE.Vector3(980, 145, 90),
-      new THREE.Vector3(810, 170, 480),
-      new THREE.Vector3(480, 150, 790),
-      new THREE.Vector3(80, 95, 920),
-      new THREE.Vector3(-450, 80, 750),
-      new THREE.Vector3(-820, 110, 280),
-      new THREE.Vector3(-760, 180, -140),
-      new THREE.Vector3(-420, 190, -550),
-      new THREE.Vector3(-100, 110, -700),
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(140, 0, -220),
+      new THREE.Vector3(390, 0, -470),
+      new THREE.Vector3(720, 0, -350),
+      new THREE.Vector3(980, 0, 90),
+      new THREE.Vector3(810, 0, 480),
+      new THREE.Vector3(480, 0, 790),
+      new THREE.Vector3(80, 0, 920),
+      new THREE.Vector3(-450, 0, 750),
+      new THREE.Vector3(-820, 0, 280),
+      new THREE.Vector3(-760, 0, -140),
+      new THREE.Vector3(-420, 0, -550),
+      new THREE.Vector3(-100, 0, -700),
     ];
 
     this.curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.35);
@@ -92,9 +87,8 @@ export class Track {
       const tangent = this.curve.getTangentAt(t).normalize();
       const right = new THREE.Vector3(tangent.z, 0, -tangent.x).normalize();
 
-      const bank = Math.sin(t * Math.PI * 4) * 0.18;
-      const left = center.clone().addScaledVector(right, -this.roadHalfWidth).add(new THREE.Vector3(0, bank * 6, 0));
-      const rgt = center.clone().addScaledVector(right, this.roadHalfWidth).add(new THREE.Vector3(0, -bank * 6, 0));
+      const left = center.clone().addScaledVector(right, -this.roadHalfWidth);
+      const rgt = center.clone().addScaledVector(right, this.roadHalfWidth);
 
       roadPositions.push(left.x, left.y, left.z, rgt.x, rgt.y, rgt.z);
       roadNormals.push(0, 1, 0, 0, 1, 0);
@@ -135,24 +129,15 @@ export class Track {
     roadGeo.computeVertexNormals();
 
     const roadMat = new THREE.MeshStandardMaterial({
-      color: '#857a6b',
-      roughness: 0.85,
-      metalness: 0.05,
+      color: '#8b8d92',
+      roughness: 0.92,
+      metalness: 0.02,
+      transparent: false,
+      opacity: 1,
     });
     const road = new THREE.Mesh(roadGeo, roadMat);
     road.receiveShadow = true;
     this.scene.add(road);
-
-    const stripeGeo = new THREE.TubeGeometry(this.curve, 1100, 0.45, 6, true);
-    const stripe = new THREE.Mesh(
-      stripeGeo,
-      new THREE.MeshBasicMaterial({
-        color: '#f4e7a1',
-        transparent: true,
-        opacity: 0.7,
-      }),
-    );
-    this.scene.add(stripe);
 
     const guardGeo = new THREE.BufferGeometry();
     guardGeo.setAttribute('position', new THREE.Float32BufferAttribute(guardPositions, 3));
@@ -217,7 +202,7 @@ export class Track {
     const bridgeT = 0.36;
     const bridgeCenter = this.curve.getPointAt(bridgeT);
     const bridgeTan = this.curve.getTangentAt(bridgeT);
-    bridge.position.copy(bridgeCenter).add(new THREE.Vector3(0, 10, 0));
+    bridge.position.copy(bridgeCenter).add(new THREE.Vector3(0, 0.4, 0));
     bridge.rotation.y = Math.atan2(bridgeTan.x, bridgeTan.z);
     this.scene.add(bridge);
   }

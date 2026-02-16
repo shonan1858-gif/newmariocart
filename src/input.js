@@ -30,9 +30,10 @@ export class InputController {
   }
 
   get steer() {
-    const left = this.keys.has('KeyA') ? 1 : 0;
-    const right = this.keys.has('KeyD') ? 1 : 0;
-    return right - left;
+    // 統一仕様: A=左(-1), D=右(+1)
+    const steerLeft = this.keys.has('KeyA') ? -1 : 0;
+    const steerRight = this.keys.has('KeyD') ? 1 : 0;
+    return steerLeft + steerRight;
   }
 
   consumePressed(code) {

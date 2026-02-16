@@ -6,9 +6,12 @@ export class ChaseCamera {
     this.lookTarget = new THREE.Vector3();
     this.currentPos = new THREE.Vector3();
     this.jitter = 0;
+    this.camera.up.set(0, 1, 0);
   }
 
   update(dt, kart, telemetry) {
+    this.camera.up.set(0, 1, 0);
+
     const forward = kart.getForward();
     const speedNorm = THREE.MathUtils.clamp(telemetry.speed / 55, 0, 1);
     const driftOffset = telemetry.drifting ? -kart.driftDir * 1.4 : 0;
