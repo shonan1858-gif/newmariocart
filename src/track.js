@@ -4,14 +4,33 @@ function terrainHeight() {
   return -4.0;
 }
 
+function createRampMesh(width, length, height) {
+  const geo = new THREE.PlaneGeometry(width, length, 1, 18);
+  geo.rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i += 1) {
+    const z = pos.getZ(i);
+    const rampT = THREE.MathUtils.clamp((z + length * 0.5) / length, 0, 1);
+    const y = Math.sin(rampT * Math.PI * 0.5) * height;
+    pos.setY(i, y);
+  }
+  geo.computeVertexNormals();
+  return new THREE.Mesh(
+    geo,
+    new THREE.MeshStandardMaterial({ color: '#96999e', roughness: 0.95, metalness: 0.02 }),
+  );
+}
+
 export class Track {
   constructor(scene) {
     this.scene = scene;
-    this.roadHalfWidth = 11;
-    this.guardHalfWidth = 14;
+    this.roadHalfWidth = 12;
+    this.guardHalfWidth = 14.8;
     this.samples = [];
     this.checkpoints = [];
     this.curve = null;
+    this.jumpRamps = [];
+    this.itemBoxSpawns = [];
 
     this.buildEnvironment();
     this.buildTrack();
@@ -31,43 +50,41 @@ export class Track {
     });
     this.scene.add(new THREE.Mesh(skyGeo, skyMat));
 
-    const terrainSize = 5000;
-    const terrainGeo = new THREE.PlaneGeometry(terrainSize, terrainSize, 24, 24);
+    const terrainGeo = new THREE.PlaneGeometry(5000, 5000, 18, 18);
     terrainGeo.rotateX(-Math.PI / 2);
     const pos = terrainGeo.attributes.position;
     for (let i = 0; i < pos.count; i += 1) {
       pos.setY(i, terrainHeight());
     }
     terrainGeo.computeVertexNormals();
-
-    const terrain = new THREE.Mesh(
-      terrainGeo,
-      new THREE.MeshStandardMaterial({ color: '#608a55', roughness: 1, metalness: 0 }),
+    this.scene.add(
+      new THREE.Mesh(
+        terrainGeo,
+        new THREE.MeshStandardMaterial({ color: '#608a55', roughness: 1, metalness: 0 }),
+      ),
     );
-    terrain.receiveShadow = true;
-    this.scene.add(terrain);
   }
 
   buildTrack() {
-    const roadLift = 0.05;
+    const roadLift = 0.08;
     const points = [
       new THREE.Vector3(0, roadLift, 0),
-      new THREE.Vector3(180, roadLift, -260),
-      new THREE.Vector3(430, roadLift, -560),
-      new THREE.Vector3(820, roadLift, -420),
-      new THREE.Vector3(1080, roadLift, 90),
-      new THREE.Vector3(920, roadLift, 540),
-      new THREE.Vector3(520, roadLift, 860),
-      new THREE.Vector3(80, roadLift, 980),
-      new THREE.Vector3(-500, roadLift, 780),
-      new THREE.Vector3(-900, roadLift, 280),
-      new THREE.Vector3(-820, roadLift, -180),
-      new THREE.Vector3(-460, roadLift, -620),
-      new THREE.Vector3(-120, roadLift, -760),
+      new THREE.Vector3(210, roadLift, -280),
+      new THREE.Vector3(520, roadLift, -620),
+      new THREE.Vector3(930, roadLift, -490),
+      new THREE.Vector3(1200, roadLift, 60),
+      new THREE.Vector3(980, roadLift, 610),
+      new THREE.Vector3(560, roadLift, 930),
+      new THREE.Vector3(20, roadLift, 1060),
+      new THREE.Vector3(-580, roadLift, 800),
+      new THREE.Vector3(-980, roadLift, 230),
+      new THREE.Vector3(-840, roadLift, -260),
+      new THREE.Vector3(-450, roadLift, -720),
+      new THREE.Vector3(-120, roadLift, -820),
     ];
 
-    this.curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.35);
-    const sampleCount = 900;
+    this.curve = new THREE.CatmullRomCurve3(points, true, 'catmullrom', 0.34);
+    const sampleCount = 1000;
     const centerPoints = this.curve.getPoints(sampleCount);
 
     const roadPositions = [];
@@ -75,11 +92,10 @@ export class Track {
     const roadUvs = [];
     const roadIndices = [];
 
-    const guardPositions = [];
-    const guardIndices = [];
-
-    const barrierGeo = new THREE.BoxGeometry(0.8, 1.0, 3.2);
-    const barrierMat = new THREE.MeshStandardMaterial({ color: '#d7dbe2', roughness: 0.8, metalness: 0.1 });
+    const wallMat = new THREE.MeshStandardMaterial({ color: '#d0d2d6', roughness: 0.82, metalness: 0.03 });
+    const wallGeo = new THREE.BoxGeometry(0.85, 1.45, 3.1);
+    const laneDashGeo = new THREE.BoxGeometry(0.35, 0.04, 4.2);
+    const laneDashMat = new THREE.MeshStandardMaterial({ color: '#f5f7fa', roughness: 0.75, metalness: 0 });
 
     for (let i = 0; i <= sampleCount; i += 1) {
       const t = i / sampleCount;
@@ -92,33 +108,35 @@ export class Track {
 
       roadPositions.push(left.x, left.y, left.z, rgt.x, rgt.y, rgt.z);
       roadNormals.push(0, 1, 0, 0, 1, 0);
-      roadUvs.push(0, t * 30, 1, t * 30);
-
-      const guardL = center.clone().addScaledVector(right, -this.guardHalfWidth);
-      const guardR = center.clone().addScaledVector(right, this.guardHalfWidth);
-      guardPositions.push(guardL.x, guardL.y + 1.2, guardL.z, guardR.x, guardR.y + 1.2, guardR.z);
+      roadUvs.push(0, t * 24, 1, t * 24);
 
       this.samples.push({ t, center: center.clone(), right: right.clone(), tangent: tangent.clone() });
 
       if (i > 0) {
         const base = i * 2;
         roadIndices.push(base - 2, base - 1, base, base, base - 1, base + 1);
-        guardIndices.push(base - 2, base, base - 1, base + 1);
       }
 
-      if (i % 90 === 0) {
+      if (i % 120 === 0) {
         this.checkpoints.push({ position: center.clone().add(new THREE.Vector3(0, 1, 0)), direction: tangent.clone(), t });
       }
 
-      if (i % 18 === 0) {
-        const leftBarrier = new THREE.Mesh(barrierGeo, barrierMat);
-        leftBarrier.position.copy(guardL).add(new THREE.Vector3(0, 0.45, 0));
-        leftBarrier.rotation.y = Math.atan2(tangent.x, tangent.z);
-        this.scene.add(leftBarrier);
+      if (i % 20 === 0) {
+        const wallL = new THREE.Mesh(wallGeo, wallMat);
+        wallL.position.copy(center).addScaledVector(right, -(this.guardHalfWidth + 0.2)).add(new THREE.Vector3(0, 0.72, 0));
+        wallL.rotation.y = Math.atan2(tangent.x, tangent.z);
+        this.scene.add(wallL);
 
-        const rightBarrier = leftBarrier.clone();
-        rightBarrier.position.copy(guardR).add(new THREE.Vector3(0, 0.45, 0));
-        this.scene.add(rightBarrier);
+        const wallR = wallL.clone();
+        wallR.position.copy(center).addScaledVector(right, this.guardHalfWidth + 0.2).add(new THREE.Vector3(0, 0.72, 0));
+        this.scene.add(wallR);
+      }
+
+      if (i % 24 === 0) {
+        const dash = new THREE.Mesh(laneDashGeo, laneDashMat);
+        dash.position.copy(center).add(new THREE.Vector3(0, 0.03, 0));
+        dash.rotation.y = Math.atan2(tangent.x, tangent.z);
+        this.scene.add(dash);
       }
     }
 
@@ -131,38 +149,64 @@ export class Track {
 
     const road = new THREE.Mesh(
       roadGeo,
-      new THREE.MeshStandardMaterial({
-        color: '#8f9296',
-        roughness: 0.93,
-        metalness: 0.03,
-        transparent: false,
-        opacity: 1,
-      }),
+      new THREE.MeshStandardMaterial({ color: '#8f9296', roughness: 0.94, metalness: 0.02, transparent: false, opacity: 1 }),
     );
     road.receiveShadow = true;
     this.scene.add(road);
 
     const shoulder = new THREE.Mesh(
-      new THREE.TubeGeometry(this.curve, 1400, this.roadHalfWidth + 1.8, 12, true),
-      new THREE.MeshStandardMaterial({ color: '#b9b6a4', roughness: 0.9, metalness: 0 }),
+      new THREE.TubeGeometry(this.curve, 1600, this.roadHalfWidth + 2.2, 14, true),
+      new THREE.MeshStandardMaterial({ color: '#bbb8ad', roughness: 0.96, metalness: 0 }),
     );
-    shoulder.position.y = roadLift - 0.06;
+    shoulder.position.y = roadLift - 0.08;
     this.scene.add(shoulder);
 
-    const guardGeo = new THREE.BufferGeometry();
-    guardGeo.setAttribute('position', new THREE.Float32BufferAttribute(guardPositions, 3));
-    guardGeo.setIndex(guardIndices);
-    this.scene.add(
-      new THREE.LineSegments(
-        guardGeo,
-        new THREE.LineBasicMaterial({ color: '#d8e6ef', transparent: true, opacity: 0.5 }),
-      ),
-    );
+    this.placeJumpRamp(0.34, 8, 18, 2.2);
+    this.placeItemBoxes([0.18, 0.51, 0.77]);
 
     this.startTransform = {
-      position: this.samples[5].center.clone().add(new THREE.Vector3(0, 1.2, 0)),
-      yaw: Math.atan2(this.samples[5].tangent.x, this.samples[5].tangent.z),
+      position: this.samples[8].center.clone().add(new THREE.Vector3(0, 1.2, 0)),
+      yaw: Math.atan2(this.samples[8].tangent.x, this.samples[8].tangent.z),
     };
+  }
+
+  placeJumpRamp(t, width, length, height) {
+    const center = this.curve.getPointAt(t);
+    const tangent = this.curve.getTangentAt(t).normalize();
+    const mesh = createRampMesh(width, length, height);
+    mesh.position.copy(center).add(new THREE.Vector3(0, 0.05, 0));
+    mesh.rotation.y = Math.atan2(tangent.x, tangent.z);
+    this.scene.add(mesh);
+
+    this.jumpRamps.push({ center: center.clone(), tangent: tangent.clone(), width, length, height, boost: 9.5 });
+  }
+
+  placeItemBoxes(ts) {
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: '#7fd8ff',
+      emissive: '#2e6ec4',
+      emissiveIntensity: 0.45,
+      roughness: 0.2,
+      metalness: 0.15,
+      transparent: true,
+      opacity: 0.78,
+    });
+    const edgeMat = new THREE.MeshBasicMaterial({ color: '#ffffff', wireframe: true });
+
+    ts.forEach((t) => {
+      const center = this.curve.getPointAt(t);
+      const tangent = this.curve.getTangentAt(t).normalize();
+      const right = new THREE.Vector3(tangent.z, 0, -tangent.x).normalize();
+      [-3.4, 0, 3.4].forEach((offset, idx) => {
+        const pos = center.clone().addScaledVector(right, offset).add(new THREE.Vector3(0, 2.2, 0));
+        const box = new THREE.Group();
+        box.position.copy(pos);
+        box.add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1.4), glassMat));
+        box.add(new THREE.Mesh(new THREE.BoxGeometry(1.45, 1.45, 1.45), edgeMat));
+        this.scene.add(box);
+        this.itemBoxSpawns.push({ id: `${t}-${idx}`, position: pos, group: box, active: true, respawn: 0 });
+      });
+    });
   }
 
   buildDecorations() {
@@ -188,7 +232,7 @@ export class Track {
       this.scene.add(m);
     }
 
-    for (let i = 0; i < 300; i += 1) {
+    for (let i = 0; i < 260; i += 1) {
       const x = (Math.random() - 0.5) * 3600;
       const z = (Math.random() - 0.5) * 3600;
       const y = terrainHeight();

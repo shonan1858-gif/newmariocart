@@ -8,7 +8,7 @@ const BOOST_TABLE = [
   { force: 36, duration: 1.2 },
 ];
 
-const STEER_SIGN = -1;
+const STEER_SIGN = 1;
 
 export class Kart {
   constructor(scene, track) {
@@ -36,6 +36,7 @@ export class Kart {
     this.turboLevel = 0;
     this.boostTime = 0;
     this.boostForce = 0;
+    this.rampCooldown = 0;
 
     this.lastCheckpointIndex = 0;
     this.lap = 1;
@@ -170,8 +171,8 @@ export class Kart {
       this.stopDrift();
     }
 
-    const steeringPower = this.isDrifting ? 3.15 : 2.25;
-    const steerScale = THREE.MathUtils.clamp(movingSpeed / 26, 0.2, 1.0);
+    const steeringPower = this.isDrifting ? 2.1 : 1.35;
+    const steerScale = THREE.MathUtils.clamp(movingSpeed / 34, 0.15, 0.85);
     this.yaw += steerInput * STEER_SIGN * steeringPower * steerScale * dt;
 
     if (this.isDrifting) {
@@ -213,6 +214,28 @@ export class Kart {
       this.position.y += this.verticalVelocity * dt;
     }
 
+
+    if (this.rampCooldown > 0) {
+      this.rampCooldown -= dt;
+    }
+
+    if (this.onGround && this.rampCooldown <= 0) {
+      const closest = track.getClosestData(this.position);
+      for (let i = 0; i < track.jumpRamps.length; i += 1) {
+        const ramp = track.jumpRamps[i];
+        const toKart = this.position.clone().sub(ramp.center);
+        const localForward = toKart.dot(ramp.tangent);
+        const localRight = Math.abs(toKart.dot(new THREE.Vector3(ramp.tangent.z, 0, -ramp.tangent.x)));
+        const approaching = closest.tangent.dot(ramp.tangent) > 0.75;
+        if (approaching && localForward > -ramp.length * 0.6 && localForward < ramp.length * 0.4 && localRight < ramp.width * 0.55 && this.velocity.length() > 14) {
+          this.verticalVelocity = ramp.boost;
+          this.onGround = false;
+          this.rampCooldown = 1.2;
+          break;
+        }
+      }
+    }
+
     const nextGround = track.getGroundInfo(this.position);
     const targetY = nextGround.height + this.hoverHeight;
 
@@ -250,7 +273,6 @@ export class Kart {
     if (this.isDrifting && this.onGround) {
       const rearL = new THREE.Vector3(-1.2, 0.05, -1.55).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw).add(this.position);
       const rearR = new THREE.Vector3(1.2, 0.05, -1.55).applyAxisAngle(new THREE.Vector3(0, 1, 0), this.yaw).add(this.position);
-      vfx.addSkid(rearL, rearR);
       vfx.addDriftSparks(this.position.clone().add(new THREE.Vector3(0, 0.55, -1.4)), this.turboLevel);
     }
 

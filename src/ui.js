@@ -4,6 +4,7 @@ export class UI {
     this.speedEl = document.getElementById('speed');
     this.lapEl = document.getElementById('lap');
     this.debugEl = document.getElementById('debug');
+    this.itemEl = document.getElementById('item-slot');
     this.minimap = document.getElementById('minimap');
     this.ctx = this.minimap.getContext('2d');
 
@@ -30,7 +31,7 @@ export class UI {
     };
   }
 
-  update(telemetry, kart) {
+  update(telemetry, kart, itemState) {
     const kmh = Math.round(telemetry.speed * 3.6);
     this.speedEl.textContent = `${kmh} km/h`;
     this.lapEl.textContent = `Lap ${kart.lap}/3`;
@@ -42,6 +43,14 @@ export class UI {
       `drifting: ${telemetry.drifting}`,
       `turboLevel: ${telemetry.turboLevel}`,
     ].join('<br/>');
+
+    if (itemState.rouletteActive) {
+      this.itemEl.textContent = `ITEM: ${itemState.rouletteName} ...`;
+    } else if (itemState.heldItem) {
+      this.itemEl.textContent = `ITEM: ${itemState.heldItem} (Kで投げる)`;
+    } else {
+      this.itemEl.textContent = 'ITEM: ---';
+    }
 
     this.drawMinimap(kart);
   }

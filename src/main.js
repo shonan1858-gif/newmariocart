@@ -6,11 +6,12 @@ import { CollisionSystem } from './collision.js';
 import { ChaseCamera } from './camera.js';
 import { UI } from './ui.js';
 import { VFXSystem } from './vfx.js';
+import { ItemSystem } from './items.js';
 
 const app = document.getElementById('app');
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog('#b9d1ef', 380, 2300);
+scene.fog = new THREE.Fog('#b9d1ef', 450, 2500);
 
 const camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 5000);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -25,6 +26,7 @@ const kart = new Kart(scene, track);
 const collision = new CollisionSystem(track);
 const chaseCamera = new ChaseCamera(camera);
 const vfx = new VFXSystem(scene);
+const itemSystem = new ItemSystem(scene, track);
 const ui = new UI(track);
 
 function respawn() {
@@ -39,9 +41,10 @@ function tick() {
   }
 
   const telemetry = kart.update(dt, input, track, collision, vfx);
+  itemSystem.update(dt, kart, input);
   chaseCamera.update(dt, kart, telemetry);
   vfx.update(dt);
-  ui.update(telemetry, kart);
+  ui.update(telemetry, kart, itemSystem.getUIState());
 
   renderer.render(scene, camera);
   input.endFrame();
